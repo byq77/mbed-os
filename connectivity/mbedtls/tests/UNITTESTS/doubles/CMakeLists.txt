@@ -11,6 +11,11 @@ target_include_directories(mbed-headers-mbedtls
 
 add_library(mbed-stubs-mbedtls)
 
+target_include_directories(mbed-stubs-mbedtls
+    PUBLIC
+        .
+)
+
 target_sources(mbed-stubs-mbedtls
     PRIVATE
         aes_stub.c
