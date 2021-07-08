@@ -59,14 +59,12 @@ target_include_directories(mbed-stubs-headers
         ${mbed-os_SOURCE_DIR}/connectivity/nanostack/coap-service/test/coap-service/unittest/stub
 )
 
-add_subdirectory(connectivity)
 add_subdirectory(events)
 
 add_library(mbed-stubs INTERFACE)
 
 target_link_libraries(mbed-stubs
     INTERFACE
-        mbed-stubs-connectivity
         mbed-stubs-drivers
         mbed-stubs-events
         mbed-stubs-hal
