@@ -27,12 +27,21 @@ function(check_python_package PACKAGENAME OUTPUT_VAR)
         set(PY_INTERP_FOR_${OUTPUT_VAR} ${Python3_EXECUTABLE} CACHE INTERNAL "The python interpreter used to run the ${OUTPUT_VAR} check" FORCE)
 
         execute_process(
-            COMMAND ${Python3_EXECUTABLE} -c "import ${PACKAGENAME}"
-            RESULT_VARIABLE PACKAGECHECK_RESULT
+            COMMAND ${Python3_EXECUTABLE} -m pip show ${PACKAGENAME}
+            RESULT_VARIABLE PIP_SHOW_RESULT
             ERROR_QUIET
+            OUTPUT_QUIET
          )
 
-        if(${PACKAGECHECK_RESULT} EQUAL 0)
+        # In case we want to check for a import statement instead of the result of pip show <package_name>
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "import ${PACKAGENAME}"
+            RESULT_VARIABLE PACKAGE_IMPORT_RESULT
+            ERROR_QUIET
+            OUTPUT_QUIET
+         )
+
+        if(${PIP_SHOW_RESULT} EQUAL 0 OR ${PACKAGE_IMPORT_RESULT} EQUAL 0)
             set(HAVE_PACKAGE TRUE)
         else()
             set(HAVE_PACKAGE FALSE)
