@@ -3,22 +3,32 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Configuration assembly algorithm."""
-import itertools
 
+from __future__ import annotations
+
+import logging
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Iterable, List, Optional, Set
 
-from setuptools.build_meta import build_editable
+import pydantic
 
-from mbed_tools.project import MbedProgram
-from mbed_tools.build._internal.config.config import Config
 from mbed_tools.build._internal.config import source
-from mbed_tools.build._internal.find_files import LabelFilter, RequiresFilter, filter_files, find_files
+from mbed_tools.build._internal.config.config import Config
+from mbed_tools.build._internal.find_files import LabelFilter, filter_files, find_files
+from mbed_tools.lib.json_helpers import decode_json_file
+from mbed_tools.schemas import MbedAppJSON
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from mbed_tools.project import MbedProgram
+
+logger = logging.getLogger(__name__)
 
 
 def assemble_config(target_attributes: dict, program: MbedProgram) -> Config:
-    """Assemble config for given target and program directory.
+    """
+    Assemble config for given target and program directory.
 
     Mbed library and application specific config parameters are parsed from mbed_lib.json and mbed_app.json files
     located in the project source tree.
@@ -40,10 +50,12 @@ def assemble_config(target_attributes: dict, program: MbedProgram) -> Config:
         mbed_lib_files.update(find_files("mbed_lib.json", path.absolute().resolve()))
         mbed_lib_files.update(find_files("mbed_lib.json5", path.absolute().resolve()))
 
-    config = _assemble_config_from_sources(target_attributes, list(mbed_lib_files), program.files.app_config_file)
+    config, used_mbed_lib_files = _assemble_config_from_sources(
+        target_attributes, list(mbed_lib_files), program.files.app_config_file
+    )
 
     # Set up the config source path list using the path to every JSON
-    config.json_sources.extend(mbed_lib_files)
+    config.json_sources.extend(used_mbed_lib_files)
     if program.files.app_config_file is not None:
         config.json_sources.append(program.files.app_config_file)
     config.json_sources.append(program.mbed_os.targets_json_file)
@@ -52,7 +64,7 @@ def assemble_config(target_attributes: dict, program: MbedProgram) -> Config:
         config.json_sources.append(program.files.custom_targets_json)
 
     # Make all JSON sources relative paths to the program root
-    def make_relative_if_possible(path: Path):
+    def make_relative_if_possible(path: Path) -> Path:
         # Sadly, Pathlib did not gain a better way to do this until newer python versions.
         try:
             return path.relative_to(program.root)
@@ -66,42 +78,55 @@ def assemble_config(target_attributes: dict, program: MbedProgram) -> Config:
 
 def _assemble_config_from_sources(
     target_attributes: dict, mbed_lib_files: List[Path], mbed_app_file: Optional[Path] = None
-) -> Config:
-    config = Config(source.prepare(target_attributes, source_name="target"))
-    previous_filter_data = None
+) -> tuple[Config, list[Path]]:
+    config = Config(**source.prepare("merged target JSON", target_attributes, source_name="target"))
+    mbed_app_json_dict = None
     app_data = None
+
     if mbed_app_file:
         # We need to obtain the file filter data from mbed_app.json so we can select the correct set of mbed_lib.json
         # files to include in the config. We don't want to update the config object with all of the app settings yet
         # as we won't be able to apply overrides correctly until all relevant mbed_lib.json files have been parsed.
-        app_data = source.from_file(
-            mbed_app_file, default_name="app", target_filters=FileFilterData.from_config(config).labels
+        mbed_app_json_dict = decode_json_file(mbed_app_file)
+        filter_data = FileFilterData.from_config(config)
+        app_data = source.prepare(
+            "mbed_app.json5", mbed_app_json_dict, source_name="app", target_filters=filter_data.labels
         )
         _get_app_filter_labels(app_data, config)
 
-    current_filter_data = FileFilterData.from_config(config)
-    while previous_filter_data != current_filter_data:
-        filtered_files = _filter_files(mbed_lib_files, current_filter_data)
-        for config_file in filtered_files:
-            config.update(source.from_file(config_file, target_filters=current_filter_data.labels))
-            # Remove any mbed_lib files we've already visited from the list so we don't parse them multiple times.
-            mbed_lib_files.remove(config_file)
+    # Process mbed_lib.json files according to the filter.
+    filter_data = FileFilterData.from_config(config)
+    filtered_files = list(_filter_files(mbed_lib_files, filter_data))
+    for config_file in filtered_files:
+        mbed_lib_config_source = source.from_mbed_lib_json_file(config_file, target_filters=filter_data.labels)
+        config.update(mbed_lib_config_source)
+        # Remove any mbed_lib files we've already visited from the list so we don't parse them multiple times.
+        mbed_lib_files.remove(config_file)
 
-        previous_filter_data = current_filter_data
-        current_filter_data = FileFilterData.from_config(config)
+    # Apply mbed_app.json data last so config parameters are overridden in the correct order.
+    if mbed_app_file and mbed_app_json_dict and app_data:
+        # For right now, we check that mbed_app.json does validate against the schema, but we don't fail configuration
+        # if it does not pass the schema. This provides compatibility with older projects, as mbed_app.json has
+        # historically been a total wild west where any internal Mbed state could potentially be overridden.
+        try:
+            _ = MbedAppJSON.model_validate(mbed_app_json_dict, strict=True)
+        except pydantic.ValidationError as ex:
+            logger.warning(
+                "mbed_app.json5 failed to validate against the schema. This likely means it contains deprecated attributes, misspelled attributes, or overrides for things that should not be set in mbed_app.json5. This version of mbed-os still allows this, but this will change in the future."
+            )
+            logger.warning("Error was: %s", str(ex))
 
-    # Apply mbed_app.json data last so config parameters are overriden in the correct order.
-    if app_data:
         config.update(app_data)
 
-    return config
+    # Check configuration option which must be set
+    config_settings = config.get("config", [])
+    for setting in config_settings:
+        setting.check_value_required()
+
+    return config, filtered_files
 
 
 def _get_app_filter_labels(mbed_app_data: dict, config: Config) -> None:
-    requires = mbed_app_data.get("requires")
-    if requires:
-        config["requires"] = requires
-
     config.update(_get_file_filter_overrides(mbed_app_data))
 
 
@@ -116,16 +141,14 @@ class FileFilterData:
     labels: Set[str]
     features: Set[str]
     components: Set[str]
-    requires: Set[str]
 
     @classmethod
-    def from_config(cls, config: Config) -> "FileFilterData":
+    def from_config(cls, config: Config) -> FileFilterData:
         """Extract file filters from a Config object."""
         return cls(
             labels=config.get("labels", set()) | config.get("extra_labels", set()),
             features=set(config.get("features", set())),
             components=set(config.get("components", set())),
-            requires=set(config.get("requires", set())),
         )
 
 
@@ -134,6 +157,5 @@ def _filter_files(files: Iterable[Path], filter_data: FileFilterData) -> Iterabl
         LabelFilter("TARGET", filter_data.labels),
         LabelFilter("FEATURE", filter_data.features),
         LabelFilter("COMPONENT", filter_data.components),
-        RequiresFilter(filter_data.requires),
     )
     return filter_files(files, filters)

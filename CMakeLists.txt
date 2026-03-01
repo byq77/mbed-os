@@ -59,9 +59,18 @@ if(MBED_IS_STANDALONE AND NOT MBED_IS_NATIVE_BUILD)
     include(${CMAKE_CURRENT_LIST_DIR}/tools/cmake/mbed_toolchain_setup.cmake)
 endif()
 
-# Create project and find compilers (if not already found)
-project(mbed-os LANGUAGES C CXX ASM)
+# Get version and create project in CMake.
+# This will also find the compilers (if not already found)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/VERSION MBED_VERSION_FILE_CONTENTS)
+project(mbed-os LANGUAGES C CXX ASM VERSION ${MBED_VERSION_FILE_CONTENTS})
 
+message(STATUS "Mbed: This is Mbed OS Community Edition version ${mbed-os_VERSION}.")
+if(mbed-os_VERSION_PATCH EQUAL 99)
+    message(STATUS "Mbed: This is a development version from the main branch and might contain unexpected or incomplete changes.")
+    message(STATUS "Mbed: Ordinary users are recommended to use the latest release from the `release` branch.")
+endif()
+
+# Now do the setup that has to happen after the project() call
 if(MBED_IS_STANDALONE AND NOT MBED_IS_NATIVE_BUILD)
     include(mbed_project_setup)
 endif()
@@ -70,6 +79,7 @@ if(MBED_IS_NATIVE_BUILD)
     # Pick up some include files that are needed later
     list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/tools/cmake)
     include(mbed_create_distro)
+    include(mbed_submodule_management)
 else()
     include(mbed_set_linker_script)
 endif()
@@ -104,6 +114,10 @@ list(APPEND CMAKE_MODULE_PATH
 add_subdirectory(extern)
 
 if(MBED_IS_STANDALONE)
+
+    # Always print output on test failure
+    list(APPEND CMAKE_CTEST_ARGUMENTS --output-on-failure)
+
     include(CTest)
 
     if((NOT MBED_BUILD_GREENTEA_TESTS) AND MBED_ENABLE_TESTING)
@@ -248,12 +262,15 @@ if(MBED_IS_NATIVE_BUILD)
 endif()
 
 # Generate target config header and include it in all files
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated-headers)
 if(NOT MBED_IS_NATIVE_BUILD)
-    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated-headers)
     mbed_write_target_config_header(${CMAKE_CURRENT_BINARY_DIR}/generated-headers/mbed-target-config.h MBED_TARGET_DEFINITIONS MBED_CONFIG_DEFINITIONS)
     target_compile_options(mbed-core-flags INTERFACE -include ${CMAKE_CURRENT_BINARY_DIR}/generated-headers/mbed-target-config.h)
     target_include_directories(mbed-core-flags INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/generated-headers)
 endif()
+
+# Also generate version header
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mbed_version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated-headers/mbed_version.h)
 
 # Include mbed.h and config from generate folder
 target_include_directories(mbed-core-flags
@@ -291,8 +308,6 @@ add_subdirectory(connectivity)
 # The directories below contain optional target libraries
 add_subdirectory(drivers/device_key EXCLUDE_FROM_ALL)
 add_subdirectory(features EXCLUDE_FROM_ALL)
-add_subdirectory(cmsis/CMSIS_5/CMSIS/RTOS2 EXCLUDE_FROM_ALL)
-add_subdirectory(cmsis/device/rtos EXCLUDE_FROM_ALL)
 
 # Create top-level targets  ----------------------------------------------------------------------------------
 
@@ -311,4 +326,7 @@ if(NOT MBED_IS_NATIVE_BUILD)
     # Make sure that things linking mbed-core-flags can also get the target-specific include dirs and flags.
     mbed_extract_flags(${MBED_TARGET_CMAKE_NAME}-flags ${MBED_TARGET_CMAKE_NAME})
     target_link_libraries(mbed-core-flags INTERFACE ${MBED_TARGET_CMAKE_NAME}-flags)
+
+    # If the user specified default link libraries in their mbed_app.json, link those to mbed-os
+    target_link_libraries(${MBED_OS_CORE_LIB_NAME} INTERFACE ${MBED_DEFAULT_LINK_LIBRARIES})
 endif()

@@ -16,6 +16,7 @@ mbed_settings.py
 venv/
 
 # Mbedls
+.mbedls-mock
 .mbedls-mock.lock
 
 # Eclipse Project Files
@@ -108,3 +109,10 @@ CMakeUserPresets.json
 
 # CLion
 cmake-build-*/
+
+# Test executor runs
+test-executor-build/
+test-executor-results/
+
+# PlatformIO package.json
+package.json

@@ -137,9 +137,14 @@ elseif(MBED_GENERATE_VS_CODE_DEBUG_CFGS)
 	    # Create name (combine target name, Mbed target, and build config to generate a unique string)
 	    set(CONFIG_NAME "Debug ${CMAKE_TARGET} ${MBED_TARGET} ${CMAKE_BUILD_TYPE}")
 
+		# Escape quotes in the launch commands
+		mbed_get_upload_launch_commands_for(${target} TARGET_UPLOAD_LAUNCH_COMMANDS)
+		string(REPLACE "\"" "\\\"" UPLOAD_LAUNCH_COMMANDS_FOR_JSON "${TARGET_UPLOAD_LAUNCH_COMMANDS}")
+		string(REPLACE "\"" "\\\"" UPLOAD_RESTART_COMMANDS_FOR_JSON "${MBED_UPLOAD_RESTART_COMMANDS}")
+
 		# Convert CMake lists to json
-		list(JOIN MBED_UPLOAD_LAUNCH_COMMANDS "\", \"" UPLOAD_LAUNCH_COMMANDS_FOR_JSON)
-		list(JOIN MBED_UPLOAD_RESTART_COMMANDS "\", \"" UPLOAD_RESTART_COMMANDS_FOR_JSON)
+		list(JOIN UPLOAD_LAUNCH_COMMANDS_FOR_JSON "\", \"" UPLOAD_LAUNCH_COMMANDS_FOR_JSON)
+		list(JOIN UPLOAD_RESTART_COMMANDS_FOR_JSON "\", \"" UPLOAD_RESTART_COMMANDS_FOR_JSON)
 
 	    # property list here: https://github.com/Marus/cortex-debug/blob/master/debug_attributes.md
 	    set_property(GLOBAL APPEND_STRING PROPERTY VSCODE_LAUNCH_JSON_CONTENT "
@@ -266,12 +271,14 @@ elseif(MBED_UPLOAD_SUPPORTS_DEBUG)
 			set(UPLOAD_GDB_REMOTE_KEYWORD "remote")
 		endif()
 
-		list(JOIN MBED_UPLOAD_LAUNCH_COMMANDS "\n" MBED_UPLOAD_LAUNCH_COMMANDS_FOR_GDBINIT)
+		mbed_get_upload_launch_commands_for(${target} TARGET_UPLOAD_LAUNCH_COMMANDS)
+
+		list(JOIN TARGET_UPLOAD_LAUNCH_COMMANDS "\n" UPLOAD_LAUNCH_COMMANDS_FOR_GDBINIT)
 
 		file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/$<TARGET_FILE_BASE_NAME:${CMAKE_TARGET}>.gdbinit CONTENT
 "# connect to GDB server
 target ${UPLOAD_GDB_REMOTE_KEYWORD} 127.0.0.1:${MBED_GDB_PORT}
-${MBED_UPLOAD_LAUNCH_COMMANDS_FOR_GDBINIT}
+${UPLOAD_LAUNCH_COMMANDS_FOR_GDBINIT}
 c"
 )
 

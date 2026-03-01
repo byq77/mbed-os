@@ -3,11 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Helpers for python language related functions."""
+
 from typing import Iterable, List
 
 
 def flatten_nested(input_iter: Iterable) -> List:
-    """Flatten a nested Iterable with arbitrary levels of nesting.
+    """
+    Flatten a nested Iterable with arbitrary levels of nesting.
 
     If the input is an iterator then this function will exhaust it.
 

@@ -17,23 +17,15 @@ target_json = json.dumps(
     {
         "TARGET": {
             "core": None,
-            "trustzone": False,
-            "default_toolchain": "ARM",
-            "supported_toolchains": None,
             "extra_labels": [],
             "supported_form_factors": [],
             "components": [],
-            "is_disk_virtual": False,
             "macros": [],
             "device_has": [],
             "features": [],
-            "detect_code": [],
             "c_lib": "std",
-            "bootloader_supported": False,
-            "static_memory_defines": True,
             "printf_lib": "minimal-printf",
-            "supported_c_libs": {"arm": ["std"], "gcc_arm": ["std", "small"], "iar": ["std"]},
-            "supported_application_profiles": ["full"],
+            "supported_c_libs": {"gcc_arm": ["std", "small"]},
         }
     }
 )
@@ -56,6 +48,8 @@ class TestConfigureRegression(TestCase):
             pathlib.Path(tmpDirPath / "cmake-build-debug").mkdir()
 
             result = CliRunner().invoke(
-                configure, ["-m", "Target", "-t", "gcc_arm", "-p", tmpDir, "-o", str(tmpDirPath / "cmake-build-debug")], catch_exceptions=False
+                configure,
+                ["-m", "Target", "-t", "gcc_arm", "-p", tmpDir, "-o", str(tmpDirPath / "cmake-build-debug")],
+                catch_exceptions=False,
             )
             self.assertIn("mbed_config.cmake has been generated and written to", result.output)

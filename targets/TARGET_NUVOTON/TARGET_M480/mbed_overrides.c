@@ -83,27 +83,79 @@ void mbed_sdk_init(void)
     /* User can use SystemCoreClockUpdate() to calculate SystemCoreClock. */
     SystemCoreClockUpdate();
 
-    /* Lock protected registers */
-    SYS_LockReg();
+#if MBED_CONF_TARGET_WDT_RESET_WORKAROUND
+    /* Work around H/W limit with WDT reset from PD
+     *
+     * To reproduce WDT reset from PD, run like:
+     * Watchdog &watchdog = Watchdog::get_instance();
+     * watchdog.start(2500);
+     * while (1) {
+     *     SYS_UnlockReg();
+     *     CLK_PowerDown();
+     * }
+     *
+     * To reproduce WDT wake-up from PD and then WDT reset, run:
+     * Watchdog &watchdog = Watchdog::get_instance();
+     * watchdog.start(2500);
+     * SYS_UnlockReg();
+     * CLK_PowerDown();
+     * while (1);
+     *
+     * NOTE: The H/W limit is met on WDT reset from PD, not WDT wake-up
+     * from PD and then WDT reset.
+     *
+     * NOTE: Per test, WDT reset from PD won't raise SYS_RSTSTS.WDTRF flag,
+     * and WDT wake-up from PD will. So don't rely on SYS_IS_WDT_RST() to
+     * determine to use or not the workaround.
+     *
+     * NOTE: We may trap in DPD/SPD wake-up reset loop when multi-level
+     * bootloaders (e.g. LDROM and MCUBoot) and application all integrate
+     * this workaround. To avoid this, the wake-up flag CLK_PMUSTS_TMRWK_Msk
+     * is used to guard from duplicate wake-up reset setups by delaying
+     * its clean-up to hal_watchdog_init (watchdog_api.c).
+     *
+     * NOTE: The workaround will change SYS.RSTSTS and DEVICE_RESET_REASON won't
+     * work as expected. Don't enable MBED_CONF_TARGET_WDT_RESET_WORKAROUND and
+     * DEVICE_RESET_REASON at the same time.
+     *
+     * NOTE: Per test, DPD wake-up reset will clean RTC spare registers,
+     * so use SPD wake-up reset instead to get around the limit.
+     *
+     * NOTE: Per test, SPD wake-up reset doesn't release I/O hold status
+     * (CLK->IOPDCTL) automatically. Must do it manually.
+     */
 
-    /* Get around h/w limit with WDT reset from PD */
-    if (SYS_IS_WDT_RST()) {
-        /* Re-unlock protected clock setting */
-        SYS_UnlockReg();
+#if DEVICE_RESET_REASON
+#warning "MBED_CONF_TARGET_WDT_RESET_WORKAROUND will change SYS.RSTSTS \
+and DEVICE_RESET_REASON won't work as expected. Don't enable \
+MBED_CONF_TARGET_WDT_RESET_WORKAROUND and DEVICE_RESET_REASON \
+at the same time."
+#endif
 
-        /* Set up DPD power down mode */
-        CLK->PMUSTS |= CLK_PMUSTS_CLRWK_Msk;
-        CLK->PMUSTS |= CLK_PMUSTS_TMRWK_Msk;
-        CLK_SetPowerDownMode(CLK_PMUCTL_PDMSEL_DPD);
+    /* Release I/O hold status */
+    CLK->IOPDCTL = 1;
 
+    if (!(CLK->PMUSTS & CLK_PMUSTS_TMRWK_Msk)) {
+        /* Set up DPD/SPD power down mode */
+        CLK_SetPowerDownMode(CLK_PMUCTL_PDMSEL_SPD0);
+
+        /* Enable wake-up timer */
         CLK_SET_WKTMR_INTERVAL(CLK_PMUCTL_WKTMRIS_256);
         CLK_ENABLE_WKTMR();
 
         CLK_PowerDown();
 
-        /* Lock protected registers */
-        SYS_LockReg();
+        MBED_UNREACHABLE;
     }
+
+    /* Don't clean wake-up flag here (see above) */
+    #if 0
+    CLK->PMUSTS |= (CLK_PMUSTS_CLRWK_Msk | CLK_PMUSTS_TMRWK_Msk);
+    #endif
+#endif
+
+    /* Lock protected registers */
+    SYS_LockReg();
 }
 
 // Override mbed_mac_address of mbed_interface.c to provide ethernet devices with a semi-unique MAC address

@@ -38,6 +38,8 @@
 #include "mbed_toolchain.h"
 #include "lwipopts.h"
 
+#include "mbed_error.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -101,8 +103,6 @@ MBED_NORETURN void lwip_mbed_assert_fail(const char *msg, const char *func, cons
 #define LWIP_PLATFORM_DIAG_SERIOUS(vars) lwip_mbed_tracef_error vars
 #define LWIP_PLATFORM_DIAG_WARNING(vars) lwip_mbed_tracef_warn vars
 
-#define LWIP_PLATFORM_ASSERT(message) lwip_mbed_assert_fail(message, __func__, __FILE__, __LINE__)
-
 #else // MBED_CONF_LWIP_USE_MBED_TRACE
 #include <stdio.h>
 
@@ -110,7 +110,9 @@ MBED_NORETURN void assert_printf(const char *msg, int line, const char *file);
 
 /* Plaform specific diagnostic output */
 #define LWIP_PLATFORM_DIAG(vars) printf vars
-#define LWIP_PLATFORM_ASSERT(flag) { assert_printf((flag), __LINE__, __FILE__); }
+// Note: Sometimes there's diagnostic output printed right before an assert, so flush stdout to make sure it
+// actually gets printed.
+#define LWIP_PLATFORM_ASSERT(msg) fflush(stdout); mbed_error(MBED_MAKE_SYSTEM_ERROR(MBED_MODULE_NETWORK_STACK, MBED_ERROR_CODE_ASSERTION_FAILED), (msg), 0, __FILE__, __LINE__)
 #endif // MBED_CONF_LWIP_USE_MBED_TRACE
 #endif
 
@@ -131,14 +133,8 @@ void trace_to_ascii_hex_dump(char* prefix, int len, char *data);
 
 /* Define the memory area for the lwip's memory pools */
 #ifndef MEMP_SECTION
-#if defined(TARGET_LPC1768)
-#  if defined (__ICCARM__)
-#     define MEMP_SECTION
-#  elif defined(TOOLCHAIN_GCC_CR)
-#     define MEMP_SECTION __attribute__((section(".data.$RamPeriph32")))
-#  else
-#     define MEMP_SECTION __attribute__((section("AHBSRAM"),aligned))
-#  endif
+#if defined(TARGET_LPC17XX)
+#   define MEMP_SECTION __attribute__((section("AHBSRAM"),aligned))
 #endif
 #endif
 

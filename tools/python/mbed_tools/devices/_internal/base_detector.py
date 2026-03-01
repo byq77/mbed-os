@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Interface for device detectors."""
+
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -15,4 +16,3 @@ class DeviceDetector(ABC):
     @abstractmethod
     def find_candidates(self) -> List[CandidateDevice]:
         """Returns CandidateDevices."""
-        pass

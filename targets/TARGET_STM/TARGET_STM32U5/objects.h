@@ -106,6 +106,7 @@ struct can_s {
     FDCAN_HandleTypeDef CanHandle;
     int index;
     int hz;
+    int data_hz;
 };
 #endif
 
@@ -119,7 +120,7 @@ struct qspi_s {
     PinName io3;
     PinName sclk;
     PinName ssel;
-    bool dmaInitialized;
+    DMAHandlePointer dmaHandle;
 #if MBED_CONF_RTOS_PRESENT
     osSemaphoreId_t semaphoreId;
     osRtxSemaphore_t semaphoreMem;
@@ -141,7 +142,7 @@ struct ospi_s {
     PinName sclk;
     PinName ssel;
     PinName dqs;
-    bool dmaInitialized;
+    DMAHandlePointer dmaHandle;
 #if MBED_CONF_RTOS_PRESENT
     osSemaphoreId_t semaphoreId;
     osRtxSemaphore_t semaphoreMem;

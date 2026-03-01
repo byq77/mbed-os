@@ -63,6 +63,8 @@ jobs:
             profile: full
           - target: DISCO_L562QE
             profile: full
+          - target: NUCLEO_U083RC
+            profile: baremetal
           - target: B_U585I_IOT02A
             profile: full
           - target: NUCLEO_WB55RG
@@ -82,10 +84,6 @@ jobs:
           - target: NUMAKER_PFM_M487
             profile: full
           - target: NU_M2354
-            profile: full
-
-          # Samsung MCUs
-          - target: S1SBP6A
             profile: full
 
           # nRF MCUs
@@ -118,12 +116,6 @@ jobs:
           - target: EV_COG_AD4050LZ
             profile: full
 
-          # GigaDevices MCUs
-          - target: GD32_F307VG
-            profile: full
-          - target: GD32_F450ZI
-            profile: full
-
           # SiLabs MCUs
           - target: EFM32GG11_STK3701
             profile: full
@@ -141,8 +133,8 @@ jobs:
           apt-get update
           apt-get install -y python3-venv
 
+      # Always build with baremetal profile, as it should work with every target
       - name: Build ${{ matrix.target }} with baremetal profile
-        if: ${{ matrix.profile == 'baremetal' }}
         # Note: We have to set a wifi network name and password so that the test will compile on devices that use wifi
         run: |
             rm -rf __build

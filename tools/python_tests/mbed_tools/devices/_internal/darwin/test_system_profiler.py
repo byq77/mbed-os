@@ -2,13 +2,11 @@
 # Copyright (c) 2020-2021 Arm Limited and Contributors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+
 import plistlib
 from unittest import TestCase, mock
 
-from mbed_tools.devices._internal.darwin.system_profiler import (
-    get_all_usb_devices_data,
-    get_end_usb_devices_data,
-)
+from mbed_tools.devices._internal.darwin.system_profiler import get_all_usb_devices_data, get_end_usb_devices_data
 
 
 class TestGetAllUSBDevicesData(TestCase):

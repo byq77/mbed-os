@@ -174,7 +174,8 @@ void lp_ticker_free(void);
  */
 uint32_t lp_ticker_read(void);
 
-/** Set interrupt for specified timestamp
+/**
+ * @brief Set interrupt for specified timestamp
  *
  * @param timestamp The time in ticks to be set. Guaranteed to be between 0 and 2^bits-1, where bits is
  *    the number of bits returned by ::lp_ticker_get_info
@@ -186,6 +187,11 @@ uint32_t lp_ticker_read(void);
  *    in the past, ::lp_ticker_fire_interrupt is called instead. It will also ensure that if
  *    we want to wake up far in the future, we will instead set a wakeup for about (rollover period/2) ticks
  *    in the future, then reschedule the timer for the correct time.
+ *
+ * @note Some hardware implementations do not support setting an interrupt for after the ticker rolls over
+ *   (e.g. the STM32 LPTIM, which implements a >= comparison for interrupts rather than an == comparison).
+ *   For these implementations, it is acceptable to schedule the interrupt for the time that the ticker
+ *   rolls over. Higher level code will then reschedule the interrupt for the correct time.
  *
  * Calling this function with timestamp of more than the supported
  * number of bits returned by ::lp_ticker_get_info results in undefined
@@ -199,6 +205,7 @@ uint32_t lp_ticker_read(void);
  * @code
  * void lp_ticker_set_interrupt(timestamp_t timestamp)
  * {
+ *     lp_ticker_clear_interrupt();
  *     LPTMR_COMPARE = timestamp;
  *     LPTMR_CTRL |= LPTMR_CTRL_COMPARE_ENABLE_Msk;
  * }
@@ -222,8 +229,8 @@ void lp_ticker_disable_interrupt(void);
 /**
  * @brief Clear the low power ticker interrupt.
  *
- * This is required to be called from the interrupt handler to stop the interrupt handler
- * from being executed again after it returns. This does not do anything if called before the interrupt
+ * This is called from Mbed's interrupt handler and should clear the interrupt flag in the peripheral to stop
+ * the interrupt from being executed again after it returns. This does not do anything if called before the interrupt
  * fires (e.g. it doesn't cancel the interrupt if it's set in the future).
  *
  * Pseudo Code:

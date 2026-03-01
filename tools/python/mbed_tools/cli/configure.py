@@ -3,20 +3,24 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Command to generate the application CMake configuration script used by the build/compile system."""
+
+from __future__ import annotations
+
+import logging
 import pathlib
 
 import click
 
-from mbed_tools.project import MbedProgram
 from mbed_tools.build import generate_config
+from mbed_tools.project import MbedProgram
+
+logger = logging.getLogger(__name__)
 
 
 @click.command(
     help="Generate an Mbed OS config CMake file and write it to a .mbedbuild folder in the program directory."
 )
-@click.option(
-    "--custom-targets-json", type=click.Path(), default=None, help="Path to custom_targets.json.",
-)
+@click.option("--custom-targets-json", type=click.Path(), default=None, help="Path to custom_targets.json.")
 @click.option(
     "-t",
     "--toolchain",
@@ -25,10 +29,13 @@ from mbed_tools.build import generate_config
     help="The toolchain you are using to build your app.",
 )
 @click.option("-m", "--mbed-target", required=True, help="A build target for an Mbed-enabled device, eg. K64F")
-@click.option("-o", "--output-dir",
-              type=click.Path(path_type=pathlib.Path),
-              required=True,
-              help="Path to output directory (CMake binary dir)")
+@click.option(
+    "-o",
+    "--output-dir",
+    type=click.Path(path_type=pathlib.Path),
+    required=True,
+    help="Path to output directory (CMake binary dir)",
+)
 @click.option(
     "-p",
     "--program-path",
@@ -36,22 +43,19 @@ from mbed_tools.build import generate_config
     default=".",
     help="Path to local Mbed program. By default is the current working directory.",
 )
-@click.option(
-    "--mbed-os-path", type=click.Path(), default=None, help="Path to local Mbed OS directory.",
-)
-@click.option(
-    "--app-config", type=click.Path(), default=None, help="Path to application configuration file.",
-)
+@click.option("--mbed-os-path", type=click.Path(), default=None, help="Path to local Mbed OS directory.")
+@click.option("--app-config", type=click.Path(), default=None, help="Path to application configuration file.")
 def configure(
     toolchain: str,
     mbed_target: str,
     program_path: str,
-    mbed_os_path: str,
+    mbed_os_path: str | None,
     output_dir: pathlib.Path,
-    custom_targets_json: str,
-    app_config: str
+    custom_targets_json: str | None,
+    app_config: str | None,
 ) -> None:
-    """Exports a mbed_config.cmake file to build directory in the program root.
+    """
+    Exports a mbed_config.cmake file to build directory in the program root.
 
     The parameters set in the CMake file will be dependent on the combination of
     toolchain and Mbed target provided and these can then control which parts of
@@ -72,12 +76,17 @@ def configure(
     if mbed_os_path is None:
         program = MbedProgram.from_existing(pathlib.Path(program_path), output_dir)
     else:
-        program = MbedProgram.from_existing(pathlib.Path(program_path), output_dir, pathlib.Path(mbed_os_path).resolve())
+        program = MbedProgram.from_existing(
+            pathlib.Path(program_path), output_dir, pathlib.Path(mbed_os_path).resolve()
+        )
     if custom_targets_json is not None:
         program.files.custom_targets_json = pathlib.Path(custom_targets_json)
     if app_config is not None:
         program.files.app_config_file = pathlib.Path(app_config)
 
+    if program.files.app_config_file is None:
+        logger.info("This program does not contain an mbed_app.json config file.")
+
     mbed_target = mbed_target.upper()
     _, output_path = generate_config(mbed_target, toolchain, program)
-    click.echo(f"mbed_config.cmake has been generated and written to '{str(output_path.resolve())}'")
+    click.echo(f"mbed_config.cmake has been generated and written to '{output_path.resolve()!s}'")

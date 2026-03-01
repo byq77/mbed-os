@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Module in charge of CMake file generation."""
-import pathlib
 
+import pathlib
 from typing import Any
 
 import jinja2
@@ -16,7 +16,8 @@ TEMPLATE_NAME = "mbed_config.tmpl"
 
 
 def render_mbed_config_cmake_template(config: Config, toolchain_name: str, target_name: str) -> str:
-    """Renders the mbed_config jinja template with the target and project config settings.
+    """
+    Renders the mbed_config jinja template with the target and project config settings.
 
     Args:
         config: Config object holding information parsed from the mbed config system.
@@ -26,15 +27,17 @@ def render_mbed_config_cmake_template(config: Config, toolchain_name: str, targe
     Returns:
         The rendered mbed_config template.
     """
-    env = jinja2.Environment(loader=jinja2.PackageLoader("mbed_tools.build", str(TEMPLATES_DIRECTORY)),)
+    env = jinja2.Environment(loader=jinja2.PackageLoader("mbed_tools.build", str(TEMPLATES_DIRECTORY)))
     env.filters["to_hex"] = to_hex
     template = env.get_template(TEMPLATE_NAME)
-    config["supported_c_libs"] = [x for x in config["supported_c_libs"][toolchain_name.lower()]]
+    config["supported_c_libs"] = list(config["supported_c_libs"][toolchain_name.lower()])
 
-    context = {"target_name": target_name,
-               "toolchain_name": toolchain_name,
-               "json_sources": config.json_sources,
-               **config}
+    context = {
+        "target_name": target_name,
+        "toolchain_name": toolchain_name,
+        "json_sources": config.json_sources,
+        **config,
+    }
     return template.render(context)
 
 

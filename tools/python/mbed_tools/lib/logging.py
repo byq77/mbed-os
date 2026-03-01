@@ -3,9 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Helpers for logging errors according to severity of the exception."""
-from typing import Type, Optional, cast
-from types import TracebackType
+
 import logging
+from types import TracebackType
+from typing import Optional, Type, cast
+
+from typing_extensions import Self
+
 from mbed_tools.lib.exceptions import ToolsError
 
 LOGGING_FORMAT = "%(levelname)s: %(message)s"
@@ -31,13 +35,13 @@ def _exception_message(err: BaseException, log_level: int, traceback: bool) -> s
 class MbedToolsHandler:
     """Context Manager to catch Mbed Tools exceptions and generate a helpful user facing message."""
 
-    def __init__(self, logger: logging.Logger, traceback: bool = False):
+    def __init__(self, logger: logging.Logger, traceback: bool = False) -> None:
         """Keep track of the logger to use and whether or not a traceback should be generated."""
         self._logger = logger
         self._traceback = traceback
         self.exit_code = 0
 
-    def __enter__(self) -> "MbedToolsHandler":
+    def __enter__(self) -> Self:
         """Return the Context Manager."""
         return self
 
@@ -60,7 +64,8 @@ class MbedToolsHandler:
 
 
 def log_exception(logger: logging.Logger, exception: Exception, show_traceback: bool = False) -> None:
-    """Logs an exception in both normal and verbose forms.
+    """
+    Logs an exception in both normal and verbose forms.
 
     Args:
         logger: logger
@@ -71,7 +76,8 @@ def log_exception(logger: logging.Logger, exception: Exception, show_traceback: 
 
 
 def set_log_level(verbose_count: int) -> None:
-    """Sets the log level.
+    """
+    Sets the log level.
 
     Args:
         verbose_count: number of `-v` flags used

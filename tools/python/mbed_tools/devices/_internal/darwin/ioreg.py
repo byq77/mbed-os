@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Interactions with `ioreg`."""
+
 import plistlib
 import subprocess
 from typing import Any, Dict, Iterable, List, Optional, cast
@@ -11,7 +12,7 @@ from xml.parsers.expat import ExpatError
 
 def get_data(device_name: str) -> List[Dict]:
     """Returns parsed output of `ioreg` call for a given device name."""
-    output = subprocess.check_output(["ioreg", "-a", "-r", "-n", device_name, "-l"])
+    output = subprocess.check_output(["/usr/sbin/ioreg", "-a", "-r", "-n", device_name, "-l"])
     if output:
         try:
             return cast(List[Dict], plistlib.loads(output))
