@@ -1,46 +1,47 @@
-/* Linker script to configure memory regions. */
-/*
- * SPDX-License-Identifier: BSD-3-Clause
- ******************************************************************************
- * @attention
+/**
+ * Copyright (c) 2026 MbedCE Community Contributors (Jan Kamidra)
+ * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright (c) 2016-2020 STMicroelectronics.
- * All rights reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This software component is licensed by ST under BSD 3-Clause license,
- * the "License"; You may not use this file except in compliance with the
- * License. You may obtain a copy of the License at:
- *                        opensource.org/licenses/BSD-3-Clause
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- ******************************************************************************
-*/
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Created by: Jan Kamidra with GitHub Copilot
+ */
 
-#include "../cmsis_nvic.h"
+#include "cmsis_nvic.h"
 
-
-#if !defined(MBED_APP_START)
-  #define MBED_APP_START  MBED_ROM_START
-#endif
-
-#if !defined(MBED_APP_SIZE)
-  #define MBED_APP_SIZE  MBED_ROM_SIZE
-#endif
+M_CRASH_DATA_RAM_SIZE = 0x100;
 
 #if !defined(MBED_CONF_TARGET_BOOT_STACK_SIZE)
     /* This value is normally defined by the tools
        to 0x1000 for bare metal and 0x400 for RTOS */
     #define MBED_CONF_TARGET_BOOT_STACK_SIZE  0x400
 #endif
+STACK_SIZE = MBED_CONF_TARGET_BOOT_STACK_SIZE;
 
-M_CRASH_DATA_RAM_SIZE = 0x100;
+/* Round up MBED_VECTTABLE_RAM_SIZE to 8 bytes */
+#define MBED_VECTTABLE_RAM_SIZE  (((NVIC_NUM_VECTORS * 4) + 7) & 0xFFFFFFF8)
 
-/* Round up VECTORS_SIZE to 8 bytes */
-#define VECTORS_SIZE  (((NVIC_NUM_VECTORS * 4) + 7) & 0xFFFFFFF8)
+/** Notes: 
+ *  -   Use default configured ROM bank for F7.
+ *      If a project needs a specific flash alias view (ITCM/AXIM),
+ *      provide a custom linker script and set it via mbed_set_linker_script().
+ *  -   SRAM consists of two banks IRAM2 + IRAM1 in this order.
+ */
 
 MEMORY
 {
-    FLASH (rx)   : ORIGIN = MBED_APP_START, LENGTH = MBED_APP_SIZE
-    RAM (rwx)    : ORIGIN = MBED_RAM_START + VECTORS_SIZE, LENGTH = MBED_RAM_SIZE - VECTORS_SIZE
+    FLASH (rx) : ORIGIN = MBED_CONFIGURED_ROM_BANK_ROM_VIA_AXIM_BUS_START, LENGTH = MBED_CONFIGURED_ROM_BANK_ROM_VIA_AXIM_BUS_SIZE
+    RAM (rwx)  : ORIGIN = MBED_RAM_BANK_SRAM_START + MBED_VECTTABLE_RAM_SIZE, LENGTH = MBED_RAM_BANK_SRAM_SIZE - MBED_VECTTABLE_RAM_SIZE
 }
 
 /* Linker script to place sections and symbol values. Should be used together
@@ -175,7 +176,7 @@ SECTIONS
         . = ALIGN(32);
         __uninitialized_end = .;
     } > RAM
-    
+
     .bss :
     {
         . = ALIGN(8);
@@ -193,7 +194,7 @@ SECTIONS
         __end__ = .;
         PROVIDE(end = .);
         *(.heap*)
-        . = ORIGIN(RAM) + LENGTH(RAM) - MBED_CONF_TARGET_BOOT_STACK_SIZE;
+        . = ORIGIN(RAM) + LENGTH(RAM) - STACK_SIZE;
         __HeapLimit = .;
     } > RAM
 
@@ -209,7 +210,7 @@ SECTIONS
      * size of stack_dummy section */
     __StackTop = ORIGIN(RAM) + LENGTH(RAM);
     _estack = __StackTop;
-    __StackLimit = __StackTop - MBED_CONF_TARGET_BOOT_STACK_SIZE;
+    __StackLimit = __StackTop - STACK_SIZE;
     PROVIDE(__stack = __StackTop);
 
     /* Check if data + heap + stack exceeds RAM limit */

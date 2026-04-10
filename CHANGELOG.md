@@ -15,12 +15,26 @@ A message that notes the main changes in the update.
 ### Added
 
 ### Changed
+- STM32F7
+  - HAL driver update to `stm32f7xx-hal-driver` v1.3.3 (2025), now integrated as a submodule.
+  - CMSIS device update to `cmsis-device-f7` v1.2.10 (2025), now integrated as a submodule.
+  - Standardized ROM names in `cmsis_mcu_descriptions` across STM32F7 targets.
+  - Replaced per-target linker scripts with one common STM32F7 linker script.
+  - Replaced most STM32F7 `system_clock.c` files with one common clock configuration.
+  - Added target metadata cleanup (`adc-vref` for all F7 targets).
+  - Updated STM32F7 config/init files by consolidating Mbed changes with latest upstream templates.
+  - Removed unused Ethernet HAL sections from config (Mbed does not use ST Ethernet stack here).
+  - Applied interim local HAL fixes until upstream release includes them: https://github.com/STMicroelectronics/stm32f7xx-hal-driver/issues/23
 
 ### Deprecated
 
 ### Fixed
+- Added fixes aimed at improving Greentea stability for KV/FlashIAP (STM32F7) and USBSerial paths.
+- MIMXRT1050_EVK: Fixed build error due to typos
+- Fixed memory leak with Nanostack memory manager that caused the stack to run of memory when used with zero-copy Ethernet drivers
 
 ### Removed
+- Target Uhuru Raven (STM32F7) has been removed due to market availability (it is still possible to use it with release Mbed-os 7)
 
 ### Security
 
@@ -48,7 +62,7 @@ Lorem Ipsum dolor sit amet.
 
 _______________________________________________________________________________
 
-## [7.0.0] - 2025-2-14
+## [7.0.0] - 2026-2-14
 
 ### Added
 - New upload method system allows flashing boards as part of a CMake build, using one of a number of available debug tools
@@ -147,7 +161,7 @@ _______________________________________________________________________________
   - Fix all DMA SPI transactions being done twice due to incorrect ISR logic
 - NXP `MIMXRT105x` MCU family:
   - Fix setting the serial format putting the UART peripheral in an invalid configuration due to trying to store an 32-bit register value in a 8-bit integer
-  - Fix using a higher core voltage than needed when running at 528MHz, easting energy
+  - Fix using a higher core voltage than needed when running at 528MHz, wasting energy
   - Fix CPU clock always changing to 600MHz when exiting deep sleep, even if configured for 528MHz
 - `K64F` and `MIMXRT105x` MCU families: Fix SPI frequency being reset back to default if you called `SPI::format()` after `SPI::frequency()`
 - Infineon WHD wi-fi driver now uses the Mbed memory manager instead of directly depending on LwIP. This means it can now be used with Nanostack ([kind of](https://github.com/mbed-ce/mbed-os/issues/505)) and the EMAC unit tests
