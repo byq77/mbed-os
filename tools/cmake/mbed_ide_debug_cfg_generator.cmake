@@ -187,6 +187,17 @@ elseif(MBED_GENERATE_VS_CODE_DEBUG_CFGS)
 			\"type\": \"shell\",
 			\"command\": \"${CMAKE_COMMAND}\",
 			\"args\": [\"--build\", \"${CMAKE_BINARY_DIR}\", \"--target\", \"flash-${CMAKE_TARGET}\"],
+		},
+		// Upload ${CMAKE_TARGET} to remote (builds first via the flash-${CMAKE_TARGET} CMake target)
+		{
+			\"label\": \"Upload ${CMAKE_TARGET} to remote\",
+			\"type\": \"shell\",
+			\"command\": \"scp\",
+			\"args\": [\"${CMAKE_TARGET}.bin\",\"byq77@bbot:/home/byq77/firmware/${CMAKE_TARGET}.bin\"],
+			\"options\": {
+				\"cwd\": \"${CMAKE_BINARY_DIR}\"
+			},
+			\"problemMatcher\": []
 		},")
 
 	endfunction(mbed_generate_ide_debug_configuration)
